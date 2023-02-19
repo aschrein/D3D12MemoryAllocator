@@ -257,7 +257,7 @@ static T D3D12MA_MAX(const T& a, const T& b) { return a <= b ? b : a; }
 
 template<typename T>
 static void D3D12MA_SWAP(T& a, T& b) { T tmp = a; a = b; b = tmp; }
-
+#if 0
 // Scans integer for index of first nonzero bit from the Least Significant Bit (LSB). If mask is 0 then returns UINT8_MAX
 static UINT8 BitScanLSB(UINT64 mask)
 {
@@ -280,6 +280,7 @@ static UINT8 BitScanLSB(UINT64 mask)
     return UINT8_MAX;
 #endif
 }
+#endif
 // Scans integer for index of first nonzero bit from the Least Significant Bit (LSB). If mask is 0 then returns UINT8_MAX
 static UINT8 BitScanLSB(UINT32 mask)
 {
@@ -302,7 +303,7 @@ static UINT8 BitScanLSB(UINT32 mask)
     return UINT8_MAX;
 #endif
 }
-
+#if 0
 // Scans integer for index of first nonzero bit from the Most Significant Bit (MSB). If mask is 0 then returns UINT8_MAX
 static UINT8 BitScanMSB(UINT64 mask)
 {
@@ -325,6 +326,7 @@ static UINT8 BitScanMSB(UINT64 mask)
 #endif
     return UINT8_MAX;
 }
+#endif
 // Scans integer for index of first nonzero bit from the Most Significant Bit (MSB). If mask is 0 then returns UINT8_MAX
 static UINT8 BitScanMSB(UINT32 mask)
 {
@@ -6097,6 +6099,7 @@ private:
 class CurrentBudgetData
 {
 public:
+    CurrentBudgetData() { m_OperationsSinceBudgetFetch = UINT(0); }
     bool ShouldUpdateBudget() const { return m_OperationsSinceBudgetFetch >= 30; }
 
     void GetStatistics(Statistics& outStats, UINT group) const;
@@ -6120,7 +6123,7 @@ private:
     D3D12MA_ATOMIC_UINT64 m_BlockBytes[DXGI_MEMORY_SEGMENT_GROUP_COUNT] = {};
     D3D12MA_ATOMIC_UINT64 m_AllocationBytes[DXGI_MEMORY_SEGMENT_GROUP_COUNT] = {};
 
-    D3D12MA_ATOMIC_UINT32 m_OperationsSinceBudgetFetch = 0;
+    D3D12MA_ATOMIC_UINT32 m_OperationsSinceBudgetFetch;
     D3D12MA_RW_MUTEX m_BudgetMutex;
     UINT64 m_D3D12Usage[DXGI_MEMORY_SEGMENT_GROUP_COUNT] = {};
     UINT64 m_D3D12Budget[DXGI_MEMORY_SEGMENT_GROUP_COUNT] = {};
@@ -6355,7 +6358,7 @@ class AllocatorPimpl
     friend class Allocator;
     friend class Pool;
 public:
-    std::atomic_uint32_t m_RefCount = 1;
+    std::atomic_uint32_t m_RefCount;
     CurrentBudgetData m_Budget;
 
     AllocatorPimpl(const ALLOCATION_CALLBACKS& allocationCallbacks, const ALLOCATOR_DESC& desc);
@@ -6562,6 +6565,7 @@ AllocatorPimpl::AllocatorPimpl(const ALLOCATION_CALLBACKS& allocationCallbacks, 
     // Below this line don't use allocationCallbacks but m_AllocationCallbacks!!!
     m_AllocationObjectAllocator(m_AllocationCallbacks)
 {
+    m_RefCount = UINT(1);
     // desc.pAllocationCallbacks intentionally ignored here, preprocessed by CreateAllocator.
     ZeroMemory(&m_D3D12Options, sizeof(m_D3D12Options));
     ZeroMemory(&m_D3D12Architecture, sizeof(m_D3D12Architecture));
@@ -9679,10 +9683,13 @@ void Allocation::SetName(LPCWSTR Name)
 
 void Allocation::ReleaseThis()
 {
-    if (this == NULL)
+#        if 0
+				if (this == NULL)
     {
         return;
     }
+#        endif // 0
+
 
     SAFE_RELEASE(m_Resource);
 
@@ -9696,6 +9703,8 @@ void Allocation::ReleaseThis()
         break;
     case TYPE_HEAP:
         m_Allocator->FreeHeapMemory(this);
+        break;
+    case TYPE_COUNT:
         break;
     }
 
@@ -9829,10 +9838,13 @@ void DefragmentationContext::GetStats(DEFRAGMENTATION_STATS* pStats)
 
 void DefragmentationContext::ReleaseThis()
 {
-    if (this == NULL)
+#        if 0
+				if (this == NULL)
     {
         return;
     }
+#        endif // 0
+
 
     D3D12MA_DELETE(m_Pimpl->GetAllocs(), this);
 }
@@ -9894,10 +9906,13 @@ HRESULT Pool::BeginDefragmentation(const DEFRAGMENTATION_DESC* pDesc, Defragment
 
 void Pool::ReleaseThis()
 {
+#        if 0
     if (this == NULL)
     {
         return;
     }
+#        endif // 0
+
 
     D3D12MA_DELETE(m_Pimpl->GetAllocator()->GetAllocs(), this);
 }
@@ -10154,17 +10169,17 @@ void VirtualBlock::FreeAllocation(VirtualAllocation allocation)
     if (allocation.AllocHandle == (AllocHandle)0)
         return;
 
-    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK
+    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-        m_Pimpl->m_Metadata->Free(allocation.AllocHandle);
+    m_Pimpl->m_Metadata->Free(allocation.AllocHandle);
     D3D12MA_HEAVY_ASSERT(m_Pimpl->m_Metadata->Validate());
 }
 
 void VirtualBlock::Clear()
 {
-    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK
+    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-        m_Pimpl->m_Metadata->Clear();
+    m_Pimpl->m_Metadata->Clear();
     D3D12MA_HEAVY_ASSERT(m_Pimpl->m_Metadata->Validate());
 }
 
@@ -10172,16 +10187,16 @@ void VirtualBlock::SetAllocationPrivateData(VirtualAllocation allocation, void* 
 {
     D3D12MA_ASSERT(allocation.AllocHandle != (AllocHandle)0);
 
-    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK
+    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-        m_Pimpl->m_Metadata->SetAllocationPrivateData(allocation.AllocHandle, pPrivateData);
+    m_Pimpl->m_Metadata->SetAllocationPrivateData(allocation.AllocHandle, pPrivateData);
 }
 
 void VirtualBlock::GetStatistics(Statistics* pStats) const
 {
     D3D12MA_ASSERT(pStats);
-    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK
-        D3D12MA_HEAVY_ASSERT(m_Pimpl->m_Metadata->Validate());
+    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK;
+    D3D12MA_HEAVY_ASSERT(m_Pimpl->m_Metadata->Validate());
     ClearStatistics(*pStats);
     m_Pimpl->m_Metadata->AddStatistics(*pStats);
 }
@@ -10189,8 +10204,8 @@ void VirtualBlock::GetStatistics(Statistics* pStats) const
 void VirtualBlock::CalculateStatistics(DetailedStatistics* pStats) const
 {
     D3D12MA_ASSERT(pStats);
-    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK
-        D3D12MA_HEAVY_ASSERT(m_Pimpl->m_Metadata->Validate());
+    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK;
+    D3D12MA_HEAVY_ASSERT(m_Pimpl->m_Metadata->Validate());
     ClearDetailedStatistics(*pStats);
     m_Pimpl->m_Metadata->AddDetailedStatistics(*pStats);
 }
@@ -10199,9 +10214,9 @@ void VirtualBlock::BuildStatsString(WCHAR** ppStatsString) const
 {
     D3D12MA_ASSERT(ppStatsString);
 
-    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK
+    D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK;
 
-        StringBuilder sb(m_Pimpl->m_AllocationCallbacks);
+    StringBuilder sb(m_Pimpl->m_AllocationCallbacks);
     {
         JsonWriter json(m_Pimpl->m_AllocationCallbacks, sb);
         D3D12MA_HEAVY_ASSERT(m_Pimpl->m_Metadata->Validate());
@@ -10219,8 +10234,8 @@ void VirtualBlock::FreeStatsString(WCHAR* pStatsString) const
 {
     if (pStatsString != NULL)
     {
-        D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK
-            D3D12MA::Free(m_Pimpl->m_AllocationCallbacks, pStatsString);
+        D3D12MA_DEBUG_GLOBAL_MUTEX_LOCK;
+        D3D12MA::Free(m_Pimpl->m_AllocationCallbacks, pStatsString);
     }
 }
 

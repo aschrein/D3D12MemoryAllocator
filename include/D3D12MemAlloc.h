@@ -138,6 +138,7 @@ namespace D3D12MA
 class D3D12MA_API IUnknownImpl : public IUnknown
 {
 public:
+    IUnknownImpl() { m_RefCount = UINT(1); }
     virtual ~IUnknownImpl() = default;
     virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
     virtual ULONG STDMETHODCALLTYPE AddRef();
@@ -145,7 +146,7 @@ public:
 protected:
     virtual void ReleaseThis() { delete this; }
 private:
-    D3D12MA_ATOMIC_UINT32 m_RefCount = 1;
+    D3D12MA_ATOMIC_UINT32 m_RefCount;
 };
 } // namespace D3D12MA
 
