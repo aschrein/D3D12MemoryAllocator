@@ -4026,6 +4026,7 @@ void BlockMetadata_Linear::Alloc(
     case ALLOC_REQUEST_END_OF_2ND:
     {
         SuballocationVectorType& suballocations1st = AccessSuballocations1st();
+        (void)suballocations1st;
         // New allocation at the end of 2-part ring buffer, so before first allocation from 1st vector.
         D3D12MA_ASSERT(!suballocations1st.empty() &&
             offset + request.size <= suballocations1st[m_1stNullItemsBeginCount].offset);
